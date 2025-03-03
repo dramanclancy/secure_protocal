@@ -1,0 +1,5 @@
+/target
+
+# Ignore all .pem files in src/auth_cert/
+src/auth_cert/*.pem
+Cargo.lock
