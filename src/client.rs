@@ -1,7 +1,7 @@
 use std::io::{self, Read, Write};
 use std::net::TcpStream;
-use std::{env, thread};
-mod cert_mod;
+use std::{env, result, thread};
+
 
 
 fn main() -> std::io::Result<()> {
@@ -11,24 +11,6 @@ fn main() -> std::io::Result<()> {
 
     let mut stream = TcpStream::connect("127.0.0.1:34254")?;
     
-    let ip_addresses =vec!["127.0.0.1".to_string()];
-
-    //cert creation and update
-    let certified_key =cert_mod::cert::cert_creation(ip_addresses);
-    let cert_file_name = format!("src/auth_cert/{}_cert.pem", username);
-let key_file_name = format!("src/auth_cert/{}_key.pem", username);
-
-
-
-
-    cert_mod::cert::write_to_file(
-    &key_file_name, 
-    &certified_key.key_pair.serialize_pem(), 
-    &cert_file_name, 
-    &certified_key.cert.pem()
-    );
-
-   
 
     println!("Connected to server. Type messages to send.");
 
@@ -50,6 +32,7 @@ let key_file_name = format!("src/auth_cert/{}_key.pem", username);
     let mut input = String::new();
     while io::stdin().read_line(&mut input)? > 0 {
         if input!="\n" {
+            let mut result=String::from(&input);
             input=username.clone()+": "+&mut input;
             stream.write_all(input.as_bytes())?;
             input.clear();
