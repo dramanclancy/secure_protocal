@@ -90,17 +90,22 @@ fn main() -> std::io::Result<()> {
 
     //Key genration
     let rsa=Rsa::generate(2048)?;
-    let private_key_pem = rsa.private_key_to_pem()?;
-    let mut file = File::create("src/server_private_key.pem").expect("Failedto witeto file");
-    file.write_all(&private_key_pem).expect("failed to write private key");
 
+    //private key storage
+    let private_key_pem = rsa.private_key_to_pem()?;
+    let mut file = File::create("src/server_private_key.pem").expect("Failed to write to file");
+    file.write_all(&private_key_pem).expect("Failed to write private key");
+    
+
+    //public key generation
     let n = rsa.n().to_owned()?; // Modulus
     let e = rsa.e().to_owned()?; // Exponent
     let rsa_public = Rsa::from_public_components(n, e)?;
 
+    //public key storage
     let public_key_pem=rsa_public.public_key_to_pem()?;
-    let mut file = File::create("src/server_public_key.pem").expect("Failedto witeto file");
-    file.write_all(&private_key_pem).expect("failed to writep public key");
+    let mut file = File::create("src/server_public_key.pem").expect("Failed to write to file");
+    file.write_all(&public_key_pem).expect("Failed to write public key");
 
 
 
