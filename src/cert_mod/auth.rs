@@ -66,14 +66,14 @@ impl Entity{
 
 
 
-        // let mut server_public_key_file=File::open("src/server_public_key.pem").unwrap();
-        // let mut server_pem=String::new();
-        // server_public_key_file.read_to_string(&mut server_pem).unwrap();
+        let mut server_public_key_file=File::open("src/server_public_key.pem").unwrap();
+        let mut server_pem=String::new();
+        server_public_key_file.read_to_string(&mut server_pem).unwrap();
 
-        // let pbkey=Rsa::public_key_from_pem(server_pem.as_bytes()).unwrap();
-        // let mut encrpted_data: &[u8]=;
-        // pbkey.public_encrypt(data.as_bytes(), &mut encrpted_data, Padding::PKCS1);
-        // encrpted_data.to_ascii_lowercase();
+        let pbkey=Rsa::public_key_from_pem(server_pem.as_bytes()).unwrap();
+        let mut encrypted_data = vec![0;512];
+        pbkey.public_encrypt(data.as_bytes(), &mut encrypted_data, Padding::PKCS1).unwrap();
+        
         return data;
     }
     //fn encryption()->String{}
