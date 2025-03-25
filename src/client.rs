@@ -1,7 +1,7 @@
 use std::io::{self, Read, Write};
 use std::net::TcpStream;
-use std::{env, result, thread};
-
+use std::{env, thread};
+mod cert_mod;
 
 
 fn main() -> std::io::Result<()> {
@@ -10,10 +10,20 @@ fn main() -> std::io::Result<()> {
     let username =args.get(1).cloned().unwrap_or_else(|| "Anonymous".to_string());
 
     let mut stream = TcpStream::connect("127.0.0.1:34254")?;
-    
+   
+    //auth here
 
+    //check for  chat or lse create it
+
+    //if a user joins chat initate key exchange over s 
+     
     println!("Connected to server. Type messages to send.");
-
+    use cert_mod::auth::*;
+    
+    let user=Entity::new(username.clone());
+    let data=user.auth_data();
+    println!("{}",data);
+    //Entity::auth_data()
     let mut stream_clone = stream.try_clone()?;
 
     // Thread for receiving messages
@@ -24,6 +34,9 @@ fn main() -> std::io::Result<()> {
                 break;
             }
             let message = String::from_utf8_lossy(&buffer[..n]);
+            //sesiosn cretion
+            //decreaion
+            //message printing
             println!("\n{}", message);
         }
     });
@@ -32,7 +45,7 @@ fn main() -> std::io::Result<()> {
     let mut input = String::new();
     while io::stdin().read_line(&mut input)? > 0 {
         if input!="\n" {
-            let mut result=String::from(&input);
+            let mut _result=String::from(&input);
             input=username.clone()+": "+&mut input;
             stream.write_all(input.as_bytes())?;
             input.clear();
