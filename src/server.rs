@@ -4,13 +4,37 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 mod cert_mod;
 use std::{fs::File, io::BufReader, time::SystemTime};
-use openssl::rsa::Rsa;
+use base64::{decode,encode};
+use openssl::rsa::{Padding, Rsa};
 
 
 fn handle_client(mut stream: TcpStream, clients: Arc<Mutex<Vec<TcpStream>>>) {
     //Stream buffer to store incomming messages
     let mut buffer = [0; 512];
 
+    let encrypted_data_as_string=String::from("Msd41/Xo50hQVEKkpazudFwMRJ/lZ0Zxj9Sr/V6srfryFm6yBw0MTgTkL3u/IyEbDGxBLLshs/TXCwv0yqx7WshwfUxod4nGSh4Ke19mxjzzZxtAYs6auQcTEKGdRtUOzqRtAVb5zaOv+D8gRncCbmtp117lSpimsLZ67iEqkKZ62/BkYBAtkXFB3eyXgtHa0VexeuL21cE0oe4gAroVTan1G2sOvmyNPO3Q6p9CcqmHbCPle7l6wWtl+tmXDeLn1LP29+Efo/xPaL7+fWG5tqew8m8gdL+IDkyPbTsetJ4FmV0MDsTi8ZePZtuOBwWcjbczpi0TeYVBY3sNO4YIMA==");
+    // Read server private key
+    let mut server_private_key_file = File::open("src/test_server_private_key.pem").expect("Failed to open private key file");
+    let mut server_pem = String::new();
+    server_private_key_file.read_to_string(&mut server_pem).expect("Failed to read private key file");
+
+    let pkkey = Rsa::private_key_from_pem(server_pem.as_bytes()).expect("Failed to parse private key");
+
+    //decoding transmitted data to binary
+    let encrypted_data_bytes = decode(&encrypted_data_as_string).expect("Failed to decode encrypted data");
+
+    //buffer for decrypted data
+    let mut decrypted_data = vec![0; pkkey.size() as usize];
+
+    //decrytion
+    pkkey.private_decrypt(&encrypted_data_bytes, &mut decrypted_data, Padding::PKCS1).expect("Failed to decrypt data");
+
+    // Trim trailing zeros and print decrypted data
+    if let Some(pos) = decrypted_data.iter().rposition(|&x| x != 0) {
+        decrypted_data.truncate(pos + 1);
+    }
+    println!("---------------DECRYPTED MESSAGE---------------------------");
+    println!("{}", String::from_utf8_lossy(&decrypted_data));
 /*if (meassage is struct ):
                     convert bytes to string and output
                     extract auth_data

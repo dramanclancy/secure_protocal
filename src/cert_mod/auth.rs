@@ -1,10 +1,9 @@
-use openssl::pkey::{Private, Public};
 use openssl::rsa::{Padding, Rsa};
 use rand::Rng as _;
-use rcgen::PublicKey;
 use std::time::UNIX_EPOCH;
-use std::{fs::File, io::BufReader, time::SystemTime};
-use std::io::{self, Read, Write};
+use std::{fs::File, io::BufReader, time::SystemTime,io::{self, Read, Write}};
+use base64::encode;
+
 pub struct Entity {
     pub username:String,
     //pub public_key:Rsa<Public>,
@@ -41,7 +40,7 @@ impl Entity{
         Self { username}
 
     }  
-    pub fn auth_data(&self)->String{
+    pub fn auth_data(&self)->(String,String){
         //get current time
         let sys_time = SystemTime::now().duration_since(UNIX_EPOCH).unwrap();
         let x=format!("{}",sys_time.as_secs());
@@ -49,10 +48,10 @@ impl Entity{
         //Random nonce
         let mut rng = rand::rng(); // Create a random number generator
         let random_number = rng.random_range(1..=1_000_000_000); // Generate a number between 1 and 1,000,000
-        println!("Random number: {}", random_number);
+        //println!("Random number: {}", random_number);
 
         //Username
-        println!("{}",self.username);
+        //println!("{}",self.username);
 
         //contatinat
         let data=format!("{}||{}||{}",x,random_number,self.username);
@@ -66,15 +65,33 @@ impl Entity{
 
 
 
-        let mut server_public_key_file=File::open("src/server_public_key.pem").unwrap();
-        let mut server_pem=String::new();
-        server_public_key_file.read_to_string(&mut server_pem).unwrap();
-
-        let pbkey=Rsa::public_key_from_pem(server_pem.as_bytes()).unwrap();
-        let mut encrypted_data = vec![0;512];
-        pbkey.public_encrypt(data.as_bytes(), &mut encrypted_data, Padding::PKCS1).unwrap();
         
-        return data;
+
+        // Read server public key
+        let mut server_public_key_file = File::open("src/test_server_public_key.pem").expect("Failed to open public key file");
+        let mut server_pem = String::new();
+        server_public_key_file.read_to_string(&mut server_pem).expect("Failed to read public key file");
+    
+        let pbkey = Rsa::public_key_from_pem(server_pem.as_bytes()).expect("Failed to parse public key");
+
+        //buffer for encrypted data 
+        let mut encrypted_data = vec![0; pbkey.size() as usize];
+
+        //encrpytion
+        pbkey.public_encrypt(data.as_bytes(), &mut encrypted_data, Padding::PKCS1).expect("Failed to encrypt data");
+    
+        //encoded for transmission
+        let encrypted_data_as_string = encode(&encrypted_data);
+       
+        
+       
+    
+        
+        
+        //Hashing
+
+        
+        return (encrypted_data_as_string,data);
     }
     //fn encryption()->String{}
     //fn decryption()->String{}

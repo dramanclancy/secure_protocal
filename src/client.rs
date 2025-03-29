@@ -21,8 +21,9 @@ fn main() -> std::io::Result<()> {
     use cert_mod::auth::*;
     
     let user=Entity::new(username.clone());
-    let data=user.auth_data();
-    println!("{}",data);
+    let (data,hash)=user.auth_data();
+    println!("{},{}",data,hash);
+
     //Entity::auth_data()
     let mut stream_clone = stream.try_clone()?;
 
