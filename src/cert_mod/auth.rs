@@ -4,6 +4,8 @@ use std::time::UNIX_EPOCH;
 use std::{fs::File, io::BufReader, time::SystemTime,io::{self, Read, Write}};
 use base64::encode;
 use sha2::{Sha256, Sha512, Digest};
+use crate::cert_mod::decrypt_encrypt::decrypted_data;
+
 use super::decrypt_encrypt;
 use decrypt_encrypt::{encrypt_data,operation_type,hash_and_encode};
 
@@ -27,8 +29,7 @@ impl Entity{
         let private_file_path=format!("src/auth_cert/{}_private_key.pem",username);
         let mut file= File::create(&private_file_path).expect("Failed to write to file");
         file.write_all(&private_key_pem).expect("Failed to write private key");
-        println!("------------------------------------------------------------------------");
-        println!("Private Key Creation Success");
+    
 
         //public key generation
         let n = rsa.n().to_owned().unwrap(); // Modulus
@@ -40,8 +41,6 @@ impl Entity{
         let public_file_path=format!("src/auth_cert/{}_public_key.pem",username);
         let mut file = File::create(public_file_path).expect("Failed to write to file");
         file.write_all(&public_key_pem).expect("Failed to write public key");
-        println!("------------------------------------------------------------------------");
-        println!("Private Key Creation Success");
         let pbk=Rsa::public_key_from_pem(&public_key_pem).unwrap();
         let pvk=Rsa::private_key_from_pem(&private_key_pem).unwrap();
         Self { username}
@@ -62,11 +61,22 @@ impl Entity{
 //auth mesaage constructuion
         //Concatenate data
         let data=format!("{}||{}||{}",x,random_number,self.username);
-        println!("{}",data);
-        //ENCRYPT
-        let encrypted_data_as_string=encrypt_data(String::from("test_server"), String::from("clancy"), operation_type::authentication, data.clone());
+        
+        //encrpyt to authenticate
+        let encrypted_data_as_string=encrypt_data(
+            String::from("test_server"),  //used server public key
+            operation_type::Authentication, 
+            data.clone());
+
+
         let hashed_data=hash_and_encode(data.clone());
-        let hashed_signed_data=
+        //encrpyted to sign
+        // let hashed_signed_data=encrypt_data(
+        //     String::from("clancy"), //used entity private key 
+        //     operation_type::MessageTransfer, 
+        //     hashed_data);
+            
+
         return (encrypted_data_as_string,hashed_data);
     }
     //fn encryption()->String{}

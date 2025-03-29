@@ -13,42 +13,41 @@ fn handle_client(mut stream: TcpStream, clients: Arc<Mutex<Vec<TcpStream>>>) {
     //Stream buffer to store incomming messages
     let mut buffer = [0; 512];
 
-    let encrypted_data_as_string=String::from("Msd41/Xo50hQVEKkpazudFwMRJ/lZ0Zxj9Sr/V6srfryFm6yBw0MTgTkL3u/IyEbDGxBLLshs/TXCwv0yqx7WshwfUxod4nGSh4Ke19mxjzzZxtAYs6auQcTEKGdRtUOzqRtAVb5zaOv+D8gRncCbmtp117lSpimsLZ67iEqkKZ62/BkYBAtkXFB3eyXgtHa0VexeuL21cE0oe4gAroVTan1G2sOvmyNPO3Q6p9CcqmHbCPle7l6wWtl+tmXDeLn1LP29+Efo/xPaL7+fWG5tqew8m8gdL+IDkyPbTsetJ4FmV0MDsTi8ZePZtuOBwWcjbczpi0TeYVBY3sNO4YIMA==");
-    //Decrpyt
-    use cert_mod::decrypt_encrypt::{operation_type,decrypted_data};
-    let decrypted_data_as_string=decrypted_data(String::from("test_server"), String::from("test_server"), operation_type::authentication, encrypted_data_as_string.clone());
-    println!("decrypted_data:{}",decrypted_data_as_string);
+    //decrpyt
+    let mut intial_buffer = [0;512];
+    stream.read(&mut intial_buffer).unwrap();
+    let intial_data=String::from_utf8_lossy(&intial_buffer).to_string();
+    let parts: Vec<&str> = intial_data.split("||").collect();
+
+    let data = parts[0].to_string();
+    let hash = parts[1].to_string();
+    println!("-----------------DATA-----------------------");
+    println!("{}",data);
+    println!("-----------------HASH-----------------------");
+    println!("{}",hash);
     
-/*if (meassage is struct ):
-                    convert bytes to string and output
-                    extract auth_data
-                    run decrypt 
-                    if (Ok()):
-                        CONTIUNE
+    //get intial data from stream
+    use cert_mod::decrypt_encrypt::{decrypted_data,hash_and_encode,_verifcation};
+    
+    //decrpyt data by server with its private key 
+    let decrypted_data_=decrypted_data("test_server".to_string(), cert_mod::decrypt_encrypt::operation_type::Authentication, data);
+    
+    //hash to compare with signed hash
+    let decrypted_data_hash_=hash_and_encode(decrypted_data_.clone());
+
+    
 
 
-                    else:
-                        break;
-                else: 
-                    convert bytes to string and output
-                    */
+    //Client verification
+    if _verifcation(decrypted_data_.clone()).is_ok(){
+        stream.write_all(b"Connection accepted").unwrap();
+    } else {
+        stream.write_all(b"Connection rejected").unwrap();
+        return;
 
-    //case to chea=ck if the buffer has any data
-
-// Authentication passed, add client to the list
-    /*
-    {
-        let mut clients_lock = clients.lock().unwrap();
-        clients_lock.push(stream.try_clone().unwrap());
     }
-    */
+    
 
-
-// let id_file=File::open("src/user_id.txt").unwrap();
-// let reader=io::BufReader::new(id_file);
-// for line in reader.lines(){
-
-// }
 
     loop {
         
@@ -123,7 +122,7 @@ fn main() -> std::io::Result<()> {
     for stream in listener.incoming() {
         match stream {
             Ok(stream) => {
-                println!("New client connected: {:?}", stream.peer_addr());
+                println!("New client connecting... {:?}", stream.peer_addr());
 
                 let clients_clone = Arc::clone(&clients);
                 clients.lock().unwrap().push(stream.try_clone().unwrap());

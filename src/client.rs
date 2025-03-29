@@ -19,10 +19,12 @@ fn main() -> std::io::Result<()> {
      
     println!("Connected to server. Type messages to send.");
     use cert_mod::auth::*;
-    
+
+
     let user=Entity::new(username.clone());
     let (data,hash)=user.auth_data();
-    println!("{},{}",data,hash);
+    let auth_c=format!("{}||{}",data,hash);
+    stream.write_all(auth_c.as_bytes())?;
 
     //Entity::auth_data()
     let mut stream_clone = stream.try_clone()?;
