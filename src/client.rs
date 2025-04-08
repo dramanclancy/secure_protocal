@@ -1,33 +1,31 @@
 use std::io::{self, Read, Write};
 use std::net::TcpStream;
 use std::{env, thread};
-mod cert_mod;
 
+use client_server_functions::client_function::Client;
+mod client_server_functions;
 
 fn main() -> std::io::Result<()> {
+    
 
     let args:Vec<String> =env::args().collect();
-    let username =args.get(1).cloned().unwrap_or_else(|| "Anonymous".to_string());
+    let username =args.get(1).cloned().unwrap_or_else(|| "clancy".to_string());
 
     let mut stream = TcpStream::connect("127.0.0.1:34254")?;
-   
-    //auth here
-
-    //check for  chat or lse create it
-
-    //if a user joins chat initate key exchange over s 
      
     println!("Connected to server. Type messages to send.");
-    use cert_mod::auth::*;
+    use client_server_functions::client_function;
 
+    let client_entity=Client::new(username.clone(), "test_server".to_string());
+    let (cipher_text,signed_hash)=client_entity.authentication_data("clancy".to_string());
+    //stream.write_all(buf)
 
-    let user=Entity::new(username.clone());
-    let (data,hash)=user.auth_data();
-    let auth_c=format!("{}||{}",data,hash);
-    stream.write_all(auth_c.as_bytes())?;
+    let auth_data=format!("{}||{}",cipher_text,signed_hash);
+    println!("Client Cipher: {}",cipher_text);
+    println!("Client Hash: {}",signed_hash);
 
-    //Entity::auth_data()
     let mut stream_clone = stream.try_clone()?;
+    stream.write_all(auth_data.as_bytes());
 
     // Thread for receiving messages
     thread::spawn(move || {
@@ -37,9 +35,7 @@ fn main() -> std::io::Result<()> {
                 break;
             }
             let message = String::from_utf8_lossy(&buffer[..n]);
-            //sesiosn cretion
-            //decreaion
-            //message printing
+            
             println!("\n{}", message);
         }
     });

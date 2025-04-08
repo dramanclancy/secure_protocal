@@ -1,53 +1,26 @@
 use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
 use std::sync::{Arc, Mutex};
-use std::thread;
-mod cert_mod;
+use std::{env, thread};
 use std::{fs::File, io::BufReader, time::SystemTime};
 use base64::{decode,encode};
 use openssl::rsa::{Padding, Rsa};
+use client_server_functions::server_function::{split, Server};
+mod client_server_functions;
+
+enum ClientState{
+    Authenticating,
+    Authenticated,
+}
 
 
-
-fn handle_client(mut stream: TcpStream, clients: Arc<Mutex<Vec<TcpStream>>>) {
+fn handle_client(mut stream: TcpStream, clients: Arc<Mutex<Vec<TcpStream>>>,server:Server) {
     //Stream buffer to store incomming messages
     let mut buffer = [0; 512];
+    // let mut cipher_text=Vec::new();
+    // let mut signed_hash=Vec::new();
 
-    //decrpyt
-    let mut intial_buffer = [0;512];
-    stream.read(&mut intial_buffer).unwrap();
-    let intial_data=String::from_utf8_lossy(&intial_buffer).to_string();
-    let parts: Vec<&str> = intial_data.split("||").collect();
-
-    let data = parts[0].to_string();
-    let hash = parts[1].to_string();
-    println!("-----------------DATA-----------------------");
-    println!("{}",data);
-    println!("-----------------HASH-----------------------");
-    println!("{}",hash);
-    
-    //get intial data from stream
-    use cert_mod::decrypt_encrypt::{decrypted_data,hash_and_encode,_verifcation};
-    
-    //decrpyt data by server with its private key 
-    let decrypted_data_=decrypted_data("test_server".to_string(), cert_mod::decrypt_encrypt::operation_type::Authentication, data);
-    
-    //hash to compare with signed hash
-    let decrypted_data_hash_=hash_and_encode(decrypted_data_.clone());
-
-    
-
-
-    //Client verification
-    if _verifcation(decrypted_data_.clone()).is_ok(){
-        stream.write_all(b"Connection accepted").unwrap();
-    } else {
-        stream.write_all(b"Connection rejected").unwrap();
-        return;
-
-    }
-    
-
+    let mut client_state = ClientState::Authenticating;
 
     loop {
         
@@ -58,23 +31,34 @@ fn handle_client(mut stream: TcpStream, clients: Arc<Mutex<Vec<TcpStream>>>) {
             }
             //read buffer if there is any data
             Ok(n) => {
-                //cert creation or setup
-                let message = String::from_utf8_lossy(&buffer[..n]);
-                println!("{}", message);
+                match client_state {
+                    ClientState::Authenticating =>{
+                        let auth_data = String::from_utf8_lossy(&buffer[..n]);
+                        let (cipher_text,hash_signed,_nothing)=split(auth_data.to_string()).unwrap();
+                        println!("Server Cipher: {}",cipher_text);
+                        println!("Server Hash: {}",hash_signed);
 
-                // Broadcast message to all connected clients
-                let mut clients_lock = clients.lock().unwrap();
-                clients_lock.retain(|s| !s.peer_addr().is_err()); // Remove disconnected clients
+                        client_state = ClientState::Authenticated;
 
-                for client in clients_lock.iter_mut() {
-                    if client.peer_addr().ok() != stream.peer_addr().ok() {
-                        // Avoid echoing to sender  
-                        if let Err(e) = client.write_all(message.as_bytes()) {
-                            eprintln!("Failed to send message: {}", e);
+                    }
+                    ClientState::Authenticated =>{
+                        let message = String::from_utf8_lossy(&buffer[..n]);
+                        println!("{}", message);
+                        // Broadcast message to all connected clients
+                        let mut clients_lock = clients.lock().unwrap();
+                        clients_lock.retain(|s| !s.peer_addr().is_err()); // Remove disconnected clients
+                        for client in clients_lock.iter_mut() {
+                            if client.peer_addr().ok() != stream.peer_addr().ok() {
+                                // Avoid echoing to sender  
+                                if let Err(e) = client.write_all(message.as_bytes()) {
+                                    eprintln!("Failed to send message: {}", e);
                         }
                     }
                 }
             }
+        }
+                //cert creation or setup
+                }
             Err(_) => {
                 println!("Client connection error.");
                 break;
@@ -92,28 +76,12 @@ fn handle_client(mut stream: TcpStream, clients: Arc<Mutex<Vec<TcpStream>>>) {
 
 
 fn main() -> std::io::Result<()> {
+    let args:Vec<String> =env::args().collect();
+    let server_name =args.get(1).cloned().unwrap_or_else(|| "test_server".to_string());
     let listener = TcpListener::bind("127.0.0.1:34254")?;
     println!("Server is running on 127.0.0.1:34254");
-
-    //Key genration
-    let rsa=Rsa::generate(2048)?;
-
-    //private key storage
-    let private_key_pem = rsa.private_key_to_pem()?;
-    let mut file = File::create("src/server_private_key.pem").expect("Failed to write to file");
-    file.write_all(&private_key_pem).expect("Failed to write private key");
+    let server_entity=Server::new(server_name.clone());
     
-
-    //public key generation
-    let n = rsa.n().to_owned()?; // Modulus
-    let e = rsa.e().to_owned()?; // Exponent
-    let rsa_public = Rsa::from_public_components(n, e)?;
-
-    //public key storage
-    let public_key_pem=rsa_public.public_key_to_pem()?;
-    let mut file = File::create("src/server_public_key.pem").expect("Failed to write to file");
-    file.write_all(&public_key_pem).expect("Failed to write public key");
-
 
 
     let clients = Arc::new(Mutex::new(Vec::new())); // Shared list of clients
@@ -125,9 +93,10 @@ fn main() -> std::io::Result<()> {
                 println!("New client connecting... {:?}", stream.peer_addr());
 
                 let clients_clone = Arc::clone(&clients);
+                let server_clone=server_entity.clone();
                 clients.lock().unwrap().push(stream.try_clone().unwrap());
 
-                thread::spawn(move || handle_client(stream, clients_clone));
+                thread::spawn(move || handle_client(stream, clients_clone,server_clone));
             }
             Err(_) => eprintln!("Connection failed"),
         }
