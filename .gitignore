@@ -3,3 +3,8 @@
 # Ignore all .pem files in src/auth_cert/
 src/auth_cert/*.pem
 Cargo.lock
+.idea/vcs.xml
+.idea/editor.xml
+.idea/misc.xml
+.idea/modules.xml
+.idea/secure_protocal.iml
