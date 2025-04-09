@@ -1,8 +1,9 @@
 use std::fs::File;
 use std::io::Read;
-use base64::encode;
+use base64::{engine::general_purpose::STANDARD, Engine};
 use openssl::rsa::{Padding, Rsa};
 
+#[allow(unused)]
 pub fn public_key_encrypt( plaintext:String,entity:String) ->String{
     //Get public key file
     let file_dir=format!("src/pem/{}_public_key.pem",entity);
@@ -24,12 +25,13 @@ pub fn public_key_encrypt( plaintext:String,entity:String) ->String{
 
 
     //Encoded for transmission
-    let encrypted_data_as_string = encode(&encrypted_data);
+    let encrypted_data_as_string = STANDARD.encode(&encrypted_data);
 
 
     return encrypted_data_as_string;
 }
 
+#[allow(unused)]
 pub fn private_key_encrypt(plain_text:String,entity:String)->String{
     let file_dir=format!("src/pem/{}_private_key.pem",entity);
     let mut private_key_file = File::open(file_dir).expect("Failed to open public key file");
@@ -50,7 +52,7 @@ pub fn private_key_encrypt(plain_text:String,entity:String)->String{
 
 
     //Encoded for transmission
-    let encrypted_data_as_string = encode(&encrypted_data);
+    let encrypted_data_as_string = STANDARD.encode(&encrypted_data);
 
 
     return encrypted_data_as_string;
