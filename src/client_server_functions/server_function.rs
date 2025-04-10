@@ -1,12 +1,18 @@
-use std::fs::{File, OpenOptions};
+use std::fs::{self, File, OpenOptions};
 use std::io::{self, BufRead, BufReader, Read, Write};
 use std::time::SystemTime;
 use std::time::UNIX_EPOCH;
 
 
+use openssl::error::ErrorStack;
+use openssl::hash::MessageDigest;
+use openssl::pkey::PKey;
+use openssl::rsa::Rsa;
+use openssl::sign::{Signer, Verifier};
 
-use super::decryption_module::private_key_decrypt;
-use super::utilities_functions;
+
+use super::decryption_module::{private_key_decrypt, public_key_decrypt};
+use super::utilities_functions::{self, hash_and_encode};
 
 #[allow(unused)]
 pub fn split(text: String) -> Option<(String, String, Option<String>)> {
@@ -62,10 +68,20 @@ fn verify_nonce(nonce:String)->Result<(),String>{
         return Ok(())
 }
 
-fn verify_hash(decrypted_data:String,signed_hash:String)->Result<(),String>{
-    return Ok(())
-}
+pub fn verify_hash(decrypted_data: String, signed_hash: String, username: String) -> Result<(), String> {
+    // 1. Decrypt the signed hash using the sender's public key
+    let unsigned_hash = public_key_decrypt(signed_hash, username);
 
+    // 2. Hash the decrypted data (this is what the original sender supposedly hashed)
+    let computed_hash = hash_and_encode(decrypted_data);
+
+    // 3. Compare
+    if unsigned_hash == computed_hash {
+        Ok(())
+    } else {
+        Err("Hash mismatch: signature invalid".to_string())
+    }
+}
 #[derive(Clone)]
 #[allow(unused)]
 pub struct Server{
@@ -82,7 +98,8 @@ impl Server{
     
     let time_valid_status= verify_time(_time.clone()).is_ok();
     let nonce_valid_status=verify_nonce(_nonce.clone()).is_ok();
-    let hash_valid_status=verify_hash(decrypted_data,signed_hash).is_ok();
+    let username=_username.unwrap();
+    let hash_valid_status=verify_hash(decrypted_data,signed_hash,username.clone()).is_ok();
     
     
 
@@ -90,7 +107,7 @@ impl Server{
         return Ok(
             (_nonce,
              _time,
-             _username.unwrap()
+             username
             )
         );
     }else{
@@ -100,6 +117,8 @@ impl Server{
         
     }
     
-    
+    pub fn get_name(&self) -> String {
+        self.server_name.clone()
+    }
     
 }

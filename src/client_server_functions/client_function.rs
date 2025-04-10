@@ -1,10 +1,19 @@
 use core::hash;
+use std::fs;
+
+use openssl::error::ErrorStack;
+use openssl::hash::MessageDigest;
+use openssl::pkey::PKey;
+use openssl::rsa::Rsa;
+use openssl::sign::Signer;
+use openssl::sign::Verifier;
 
 use crate::client_server_functions::utilities_functions::nonce;
 use crate::client_server_functions::utilities_functions::time_now;
 
 use super::encryption_module;
 use super::utilities_functions::hash_and_encode;
+
 
 #[allow(unused)]
 pub struct Client {
@@ -27,6 +36,6 @@ impl Client {
         let signed_hash=encryption_module::private_key_encrypt(hash.clone(), self.username.clone());
         (cipher_text,signed_hash)
     }
-    
+
 
 }
