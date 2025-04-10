@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::io::{self, Read, Write};
 use std::net::TcpStream;
 use std::sync::{Arc, Mutex};
@@ -78,8 +78,12 @@ thread::spawn(move || {
                         );
                         old_registry=user_data.clients_online;
                         let filtered = filter_out_by_key(&old_registry, &username);
-                        
+                        let mut already_sent_to = HashSet::new();
                         for port in filtered.values(){
+                            if already_sent_to.contains(port) {
+                                continue;
+                            }
+                            already_sent_to.insert(port.clone());
                             let encoded_rndx = STANDARD.encode(rndx);
                             println!("Plain rand: {}",encoded_rndx);
                             let encrypted_random_number =encrypt_with_cert(&user_data.certificate, encoded_rndx.as_str()).unwrap();
