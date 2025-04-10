@@ -12,7 +12,7 @@ use openssl::sign::{Signer, Verifier};
 
 
 use super::decryption_module::{private_key_decrypt, public_key_decrypt};
-use super::utilities_functions::{self, hash_and_encode};
+use super::utilities_functions::{self, hash_and_encode, verify_signature};
 
 #[allow(unused)]
 pub fn split(text: String) -> Option<(String, String, Option<String>)> {
@@ -68,15 +68,17 @@ fn verify_nonce(nonce:String)->Result<(),String>{
         return Ok(())
 }
 
-pub fn verify_hash(decrypted_data: String, signed_hash: String, username: String) -> Result<(), String> {
+pub fn verify_hash(hash: String, hash_signature: String, username: String,data:String) -> Result<(), String> {
     // 1. Decrypt the signed hash using the sender's public key
-    let unsigned_hash = public_key_decrypt(signed_hash, username);
+    let signature_valid = verify_signature(&hash, &hash_signature,&username);
+    println!("Signature valid: {}",signature_valid);
 
     // 2. Hash the decrypted data (this is what the original sender supposedly hashed)
-    let computed_hash = hash_and_encode(decrypted_data);
+    let computed_hash = hash_and_encode(data);
+   
 
     // 3. Compare
-    if unsigned_hash == computed_hash {
+    if hash == computed_hash && signature_valid {
         Ok(())
     } else {
         Err("Hash mismatch: signature invalid".to_string())
@@ -92,14 +94,17 @@ pub struct Server{
 impl Server{
     pub fn new(server_name:String)->Self{Self{server_name}}
     
-    pub fn authenticate_user_data(&self,cipher_text:String,signed_hash:String)->Result<(String,String,String),String>{
+    pub fn authenticate_user_data(&self,cipher_text:String,hash_signature:String,hash:String)->Result<(String,String,String),String>{
     let decrypted_data=private_key_decrypt(cipher_text, self.server_name.clone());
+    println!("failure after here");
     let (_nonce,_time,_username)=split(decrypted_data.clone()).unwrap();
     
     let time_valid_status= verify_time(_time.clone()).is_ok();
     let nonce_valid_status=verify_nonce(_nonce.clone()).is_ok();
     let username=_username.unwrap();
-    let hash_valid_status=verify_hash(decrypted_data,signed_hash,username.clone()).is_ok();
+    println!("--------------------------");
+    println!("Client name: {}",username);
+    let hash_valid_status=verify_hash(hash,hash_signature,username.clone(),decrypted_data).is_ok();
     
     
 

@@ -9,7 +9,6 @@ Cargo.lock
 .idea/modules.xml
 .idea/secure_protocal.iml
 src/pem/clancy_cert.pem
-.gitignore
 src/pem/clancy_private_key.pem
 src/pem/clancy_public_key.pem
 src/pem/taylor_cert.pem
@@ -17,3 +16,10 @@ src/pem/taylor_private_key.pem
 src/pem/taylor_public_key.pem
 src/pem/test_server_private_key.pem
 src/pem/test_server_public_key.pem
+src/pem/A_cert.pem
+src/pem/A_private_key.pem
+src/pem/B_cert.pem
+src/pem/B_private_key.pem
+src/pem/C_cert.pem
+src/pem/C_private_key.pem
+src/pem/test_server_cert.pem

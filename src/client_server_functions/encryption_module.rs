@@ -1,35 +1,10 @@
 use std::fs::File;
 use std::io::Read;
 use base64::{engine::general_purpose::STANDARD, Engine};
-use openssl::rsa::{Padding, Rsa};
+use openssl::{pkey::PKey, rsa::{Padding, Rsa}, x509::X509};
 
 #[allow(unused)]
-pub fn public_key_encrypt( plaintext:String,entity:String) ->String{
-    //Get public key file
-    let file_dir=format!("src/pem/{}_public_key.pem",entity);
-    let mut public_key_file = File::open(file_dir).expect("Failed to open public key file");
-    let mut public_pem = String::new();
-    public_key_file.read_to_string(&mut public_pem).expect("Failed to read public key file");
 
-
-    //Public key 
-    let public_key = Rsa::public_key_from_pem(public_pem.as_bytes()).expect("Failed to parse public key");
-
-
-    //Buffer for encrypted data 
-    let mut encrypted_data = vec![0; public_key.size() as usize];
-
-
-    //Encrpytion
-    public_key.public_encrypt(plaintext.as_bytes(), &mut encrypted_data, Padding::PKCS1).expect("Failed to encrypt data");
-
-
-    //Encoded for transmission
-    let encrypted_data_as_string = STANDARD.encode(&encrypted_data);
-
-
-    return encrypted_data_as_string;
-}
 
 #[allow(unused)]
 pub fn private_key_encrypt(plain_text:String,entity:String)->String{
@@ -56,4 +31,16 @@ pub fn private_key_encrypt(plain_text:String,entity:String)->String{
 
 
     return encrypted_data_as_string;
+}
+
+#[allow(unused)]
+pub fn encrypt_with_cert(cert_pem: &str, data: &str) -> Result<String, Box<dyn std::error::Error>> {
+    let cert = X509::from_pem(cert_pem.as_bytes())?;
+    let pub_key = cert.public_key()?;
+    let rsa = pub_key.rsa()?;
+
+    let mut encrypted = vec![0; rsa.size() as usize];
+    rsa.public_encrypt(data.as_bytes(), &mut encrypted, Padding::PKCS1)?;
+
+    Ok(STANDARD.encode(encrypted))
 }

@@ -6,8 +6,10 @@ use std::{env, thread};
 use base64::{engine::general_purpose::STANDARD, Engine};
 use client_server_functions::client_function::Client;
 mod client_server_functions;
+use client_server_functions::decryption_module::private_key_decrypt;
+use client_server_functions::encryption_module::{encrypt_with_cert, private_key_encrypt};
 use client_server_functions::session_key_functions::{generate_random_256, ServerKeyFormulation, SessionKeySetup, };
-use client_server_functions::utilities_functions::{compare_maps, filter_out_by_key, verify_signature, ClientMessage};
+use client_server_functions::utilities_functions::{compare_maps, create_new_key_private_key, filter_out_by_key, generate_cert_from_pem, sign_message, verify_signature, ClientMessage};
 use serde_json;
 use std::io::BufReader;
 use std::io::BufRead;
@@ -20,17 +22,22 @@ fn main() -> std::io::Result<()> {
 
     //Getting username
     let username =args.get(1).cloned().unwrap_or_else(|| "clancy".to_string());
+
+
     let server_name="test_server";
     let mut stream = TcpStream::connect("127.0.0.1:34254")?;
+    create_new_key_private_key(&username);
+    generate_cert_from_pem(&username);
      
     println!("Connected to server. Type messages to send.");
     
     /*Client is set up with given methods to perform fucntionson dat */
     let client_entity=Client::new(username.clone(), "test_server".to_string());
-    let (cipher_text,signed_hash)=client_entity.authentication_data("clancy".to_string());
+    let (cipher_text,hash_signature,hash)=client_entity.authentication_data("clancy".to_string());
     
     //Cipher text and signed hash put together to send to server
-    let auth_data=format!("{}||{}\n",cipher_text,signed_hash);
+    let auth_data=format!("{}||{}||{}\n",cipher_text,hash_signature,hash);
+    println!("Hash: {}",hash);
     
 
     let mut stream_clone = stream.try_clone()?;
@@ -45,6 +52,7 @@ fn main() -> std::io::Result<()> {
     let thread_out_clone = Arc::clone(&thread_out);
     
 thread::spawn(move || {
+    let rndx=generate_random_256();
     let mut old_registry = HashMap::new();
     let mut reader = BufReader::new(stream_clone);
     loop {
@@ -65,26 +73,32 @@ thread::spawn(move || {
                     }
                     Ok(ClientMessage::KeyExchange { user_data }) => {
                         println!(
-                            "Received Key Exchange message from {}.\nCertificate:\n{}",
-                            user_data.user_name, user_data.certificate
+                            " {} Jonied sever.\n ----------Press enter to iniate session key setup----------",
+                            user_data.user_name
                         );
-                        
+                        old_registry=user_data.clients_online;
                         let filtered = filter_out_by_key(&old_registry, &username);
-                        let rndx=generate_random_256();
-                        let encoded_rndx = STANDARD.encode(rndx);
                         
-                        let sessionMessage= ServerKeyFormulation{
-                            encrypted_random_number:encoded_rndx,
-                            signed_random_number:"Signature field".to_owned(),
-                            port:"Port feild".to_owned()
-                        };
+                        for port in filtered.values(){
+                            let encoded_rndx = STANDARD.encode(rndx);
+                            println!("Plain rand: {}",encoded_rndx);
+                            let encrypted_random_number =encrypt_with_cert(&user_data.certificate, encoded_rndx.as_str()).unwrap();
+                            let signed_random_no=sign_message(&encoded_rndx, &username);
+
+                            let session_message= ServerKeyFormulation{
+                                encrypted_random_number,
+                                signed_random_number:signed_random_no,
+                                port:port.to_string(),
+                                user_name:username.clone()
+                            };
+
+                            let x=SessionKeySetup::ServerKeyFormulation((session_message));
+                            let serialized= format!("{}\n", serde_json::to_string(&x).unwrap());
+                            let mut output = thread_out_clone.lock().unwrap();
+                            *output = Some(serialized);
+                        }
                         
-                        let x=SessionKeySetup::ServerKeyFormulation((sessionMessage));
-                        let serialized= format!("{}\n", serde_json::to_string(&x).unwrap());
-                        println!("serialized:{}",serialized);
-                        // store it in thread_out_clone
-                        let mut output = thread_out_clone.lock().unwrap();
-                        *output = Some(serialized);
+                       
                         
                         
                        
@@ -101,6 +115,21 @@ thread::spawn(move || {
 
                        
                         
+                    }Ok(ClientMessage::RandomMessage { ClientKeyFormulation })=>{
+                        println!("WE ARE IN BUSINESS");
+                        println!("{}",ClientKeyFormulation.encrypted_random_number);
+                        println!("{}",ClientKeyFormulation.signed_random_number);
+                        println!("{}",ClientKeyFormulation.user_name);
+                        let random_number_signutre=ClientKeyFormulation.signed_random_number;
+                        let other_client= ClientKeyFormulation.user_name;
+                        let encrypted_random_number=ClientKeyFormulation.encrypted_random_number;
+                        let decrpyted_random_number =private_key_decrypt(encrypted_random_number,username.clone());
+                        println!("errorooooor after");
+                        println!("Decrypted:{}",decrpyted_random_number);
+                        let verification_s=verify_signature(&decrpyted_random_number, &random_number_signutre, &other_client);
+                        
+                        println!("Session Verified:{}",verification_s);
+                                    
                     }
                     Ok(ClientMessage::TextMessage { user_name, text }) => {
                         println!("{}: {}", user_name, text);
@@ -125,7 +154,6 @@ use std::thread::sleep;
 loop {
     // ✅ 1. Always check if thread sent something
     if let Some(to_send) = thread_out.lock().unwrap().take() {
-        println!("[Main] Sending async output: {}", to_send);
         stream.write_all(to_send.as_bytes())?;
     }
 

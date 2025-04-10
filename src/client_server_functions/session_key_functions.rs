@@ -4,9 +4,17 @@ use serde::{Deserialize, Serialize};
 pub struct ServerKeyFormulation{
     pub encrypted_random_number:String,
     pub signed_random_number:String,
+    pub user_name:String,
     pub port:String
 
 }
+#[derive(Serialize, Deserialize, Debug)]
+pub struct ClientKeyFormulation{
+    pub encrypted_random_number:String,
+    pub signed_random_number:String,
+    pub  user_name:String
+}
+
 #[derive(Serialize, Deserialize, Debug)]
 pub enum SessionKeySetup{
     ServerKeyFormulation(ServerKeyFormulation),

@@ -3,9 +3,10 @@ use std::net::{TcpListener, TcpStream};
 use std::sync::{Arc, Mutex};
 use std::{env, thread};
 use client_server_functions::encryption_module::private_key_encrypt;
-use client_server_functions::session_key_functions::SessionKeySetup;
-use client_server_functions::utilities_functions::{self, filter_out_by_key, generate_cert_from_pem, hash_and_encode, sign_message, ClientMessage};
+use client_server_functions::session_key_functions::{ClientKeyFormulation, SessionKeySetup};
+use client_server_functions::utilities_functions::{self, create_new_key_private_key, filter_out_by_key, generate_cert_from_pem, hash_and_encode, sign_message, ClientMessage};
 use client_server_functions::server_function::{split, Server};
+use base64::{engine::general_purpose::STANDARD, Engine};
 mod client_server_functions;
 use openssl::pkey::PKey;
 use serde_json;
@@ -75,8 +76,8 @@ fn handle_client(mut stream: TcpStream, clients: Arc<Mutex<Vec<TcpStream>>>,serv
                 match client_state {
                     ClientState::Authenticating => {
                         let auth_data = line.trim_end(); // Remove trailing \n
-                        let (cipher_text, signed_hash, _) = split(auth_data.to_string()).unwrap();
-                        let auth_bool = server.authenticate_user_data(cipher_text.clone(), signed_hash.clone());
+                        let (cipher_text, hash_signature, hash) = split(auth_data.to_string()).unwrap();
+                        let auth_bool = server.authenticate_user_data(cipher_text.clone(), hash_signature.clone(),hash.unwrap().clone());
                         let (_, _, user_name) = auth_bool.clone().unwrap();
                         if auth_bool.is_ok() {
                             authenticated_username = Some(user_name.clone());
@@ -122,12 +123,12 @@ fn handle_client(mut stream: TcpStream, clients: Arc<Mutex<Vec<TcpStream>>>,serv
                                 let pem_string = String::from_utf8(pem_bytes).unwrap();
                                 
                                 // println!("cert:\n{}", pem_string);
-                                let mut new_registry=registry.clone();
-                                let new_registry =filter_out_by_key(&mut new_registry, &user_name);
+                                
+                                
                                 let user_data = utilities_functions::OnlineUserData {
                                     user_name,
                                     certificate: pem_string,
-                                    clients_online:new_registry,
+                                    clients_online:registry.clone()
                                 };
     
                                 let x = utilities_functions::ClientMessage::KeyExchange { user_data };
@@ -155,11 +156,40 @@ fn handle_client(mut stream: TcpStream, clients: Arc<Mutex<Vec<TcpStream>>>,serv
                         //match session stage
                         println!("----------------------------------------");
                         match serde_json::from_str::<SessionKeySetup>(&message) {
+                            
                             Ok(SessionKeySetup::ServerKeyFormulation(data))=>{
-                                println!("ServerKeyFormulation received:");
-                                println!("Encrypted Random Number: {}", data.encrypted_random_number);
+                                println!("------Server Key Formulation received--------");
+                                let encoded_rndx = STANDARD.decode(&data.encrypted_random_number);
+                                println!("Vector Random Number: {:?}",encoded_rndx.unwrap());
+                                println!("Encoded Random Number: {:?}",data.encrypted_random_number);
                                 println!("Signed Random Number: {}", data.signed_random_number);
-                                println!("Port: {}", data.port);
+                                println!("To Port: {}", data.port);
+                                println!("From: {}", data.user_name);
+                                println!("----------------------------------------------");
+                                let registry = client_registry.lock().unwrap();
+                                
+                                
+                               
+                                for client in clients_lock.iter_mut() {
+                                
+                                let x=ClientKeyFormulation{
+                                    encrypted_random_number:data.encrypted_random_number.to_owned(),
+                                    signed_random_number:data.signed_random_number.to_owned(),
+                                    user_name:data.user_name.to_owned()
+                                };
+
+                                let z= utilities_functions::ClientMessage::RandomMessage { ClientKeyFormulation:x };
+                                    if let Ok(addr) = client.peer_addr() {
+                                        if addr.port().to_string() == data.port {
+                                            let serialized = format!("{}\n", serde_json::to_string(&z).unwrap());
+                                            if let Err(e) = client.write_all(serialized.as_bytes()) {
+                                                eprintln!("Failed to send message: {}", e);
+                                            }
+                                        }
+                                    }
+                                }
+                                
+                                continue;
                             }
                             Err(e) => {
                                 eprintln!("Failed to parse SessionKeySetup: {}", e);
@@ -211,24 +241,14 @@ fn handle_client(mut stream: TcpStream, clients: Arc<Mutex<Vec<TcpStream>>>,serv
     println!("Client removed.");
 }
 
-fn send_to_port(
-    registry: &Mutex<HashMap<String, TcpStream>>,
-    target_port: &str,
-    message: &str,
-) {
-    if let Some(mut target_stream) = registry.lock().unwrap().get_mut(target_port) {
-        if let Err(e) = target_stream.write_all(message.as_bytes()) {
-            eprintln!("Failed to send to port {}: {}", target_port, e);
-        }
-    } else {
-        eprintln!("No client found on port {}", target_port);
-    }
-}
+
 
 
 fn main() -> std::io::Result<()> {
     let args:Vec<String> =env::args().collect();
     let server_name =args.get(1).cloned().unwrap_or_else(|| "test_server".to_string());
+    create_new_key_private_key(&server_name);
+    generate_cert_from_pem(&server_name);
     let listener = TcpListener::bind("127.0.0.1:34254")?;
     println!("Server is running on 127.0.0.1:34254");
     let server_entity=Server::new(server_name.clone());
