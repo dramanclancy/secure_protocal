@@ -30,6 +30,17 @@ pub struct Client {
     server_name: String,
 }
 
+pub enum ClientInput {
+    GetCertificates,
+    ListOnlineUsers,
+    SendRndNumber,
+    CreateNewSession,
+    DiplayMenu
+}
+
+
+
+
 #[allow(unused)]
 impl Client {
     pub fn new(username: String, server_name: String) -> Self {

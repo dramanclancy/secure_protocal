@@ -1,26 +1,3 @@
-use serde::{Deserialize, Serialize};
-
-#[derive(Serialize, Deserialize, Debug)]
-pub struct ServerKeyFormulation{
-    pub encrypted_random_number:String,
-    pub signed_random_number:String,
-    pub user_name:String,
-    pub port:String
-
-}
-#[derive(Serialize, Deserialize, Debug)]
-pub struct ClientKeyFormulation{
-    pub encrypted_random_number:String,
-    pub signed_random_number:String,
-    pub  user_name:String
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-pub enum SessionKeySetup{
-    ServerKeyFormulation(ServerKeyFormulation),
-
-}
-
 pub fn generate_random_256() -> [u8; 32] {
     use rand::Rng;
     let mut rng = rand::rng();
