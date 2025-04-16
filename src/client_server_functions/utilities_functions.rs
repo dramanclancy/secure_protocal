@@ -29,20 +29,28 @@ pub enum MessageToServer {
         user_name: String,
     },
     GetUserOnline {},
-    SendRndNos {},
-    CreateNewSsessionKeys {},
+    SendRndNos {
+        encrypted_rnd_no:String,
+        rnd_no_signature:String,
+        forclient:String
+    },
+    CreateNewSsessionKeys {uname:String},
     ClientList {
         clients_online: HashMap<String, String>,
     },
     PlainText{
         text: String,
+    },
+    EncryptedMessage{
+        username:String,
+        message:String
     }
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 #[allow(unused)]
 pub enum MessageToClient {
-    TextMessage {
+    PlainTextMessage {
         user_name: String,
         text: String,
     },
@@ -51,6 +59,13 @@ pub enum MessageToClient {
     },
     CertHashMap{
         cert:HashMap<String, String>,
+    },
+    RndMap{
+        rndnos:HashMap<String, (String,String)>
+    },
+    EncryptedMessage{
+        username:String,
+        message:String
     }
 }
 
