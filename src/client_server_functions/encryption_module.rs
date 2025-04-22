@@ -5,7 +5,7 @@ use openssl::{pkey::PKey, rsa::{Padding, Rsa}, x509::X509};
 
 #[allow(unused)]
 
-
+///uses private key to encrypt
 #[allow(unused)]
 pub fn private_key_encrypt(plain_text:String,entity:String)->String{
     let file_dir=format!("src/pem/{}_private_key.pem",entity);
@@ -33,6 +33,7 @@ pub fn private_key_encrypt(plain_text:String,entity:String)->String{
     return encrypted_data_as_string;
 }
 
+///uses cert to create public key to encrypt
 #[allow(unused)]
 pub fn encrypt_with_cert(cert_pem: &str, data: &str) -> Result<String, Box<dyn std::error::Error>> {
     let cert = X509::from_pem(cert_pem.as_bytes())?;

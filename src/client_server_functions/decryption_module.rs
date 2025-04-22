@@ -3,6 +3,7 @@ use std::io::Read;
 use openssl::rsa::{Padding, Rsa};
 use base64::{engine::general_purpose::STANDARD, Engine};
 
+///uses public key to decrypt
 #[allow(unused)]
 pub fn public_key_decrypt( cipher_text:String,entity:String) ->String{
     let file_dir=format!("src/pem/{}_public_key.pem",entity);
@@ -29,6 +30,7 @@ pub fn public_key_decrypt( cipher_text:String,entity:String) ->String{
     return String::from_utf8(decrypted_data).unwrap();
 }
 
+///uses private key to decrypt
 pub fn private_key_decrypt(cipher_text:String,entity:String)->String{
     let file_dir=format!("src/pem/{}_private_key.pem",entity);
     let mut private_key_file = File::open(file_dir).expect("Failed to open private key file");

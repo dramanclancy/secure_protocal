@@ -17,13 +17,16 @@ use super::encryption_module::encrypt_with_cert;
 use super::utilities_functions::hash_and_encode;
 use super::utilities_functions::sign_message;
 
+///Retrives cert from storage based on username
 pub fn get_cert(entity: &str) -> String {
+    ///path creation
     let path = format!("src/pem/{}_cert.pem", entity);
     let mut file = fs::File::open(&path).expect("Certificate file not found");
     let mut cert_pem = String::new();
     file.read_to_string(&mut cert_pem).expect("Failed to read certificate");
     cert_pem
 }
+
 #[allow(unused)]
 pub struct Client {
     username: String,

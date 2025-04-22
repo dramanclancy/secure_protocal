@@ -15,7 +15,7 @@ use std::{env, thread};
 
 mod client_server_functions;
 use client_server_functions::encryption_module::encrypt_with_cert;
-use client_server_functions::session_key_functions::generate_random_256;
+
 use client_server_functions::utilities_functions::{
     create_new_key_private_key, generate_cert_from_pem, hash_and_encode, sign_message,
     verify_signature, MessageToClient, MessageToServer,
@@ -24,6 +24,13 @@ use serde_json;
 use std::io::{BufRead, BufReader};
 static SESSION_KEY: Lazy<Mutex<Option<String>>> = Lazy::new(|| Mutex::new(None));
 
+pub fn generate_random_256() -> [u8; 32] {
+    use rand::Rng;
+    let mut rng = rand::rng();
+    rng.random()
+}
+
+//symetic encyption function
 pub fn encrypt_message(session_key_base64: &str, plaintext: &str) -> Option<String> {
     let key_bytes = STANDARD.decode(session_key_base64).ok()?;
     let key = Key::<Aes256Gcm>::from_slice(&key_bytes);
@@ -40,7 +47,7 @@ pub fn encrypt_message(session_key_base64: &str, plaintext: &str) -> Option<Stri
 
     Some(format!("{}:{}", nonce_b64, cipher_b64))
 }
-
+//symetric decryption
 pub fn decrypt_message(session_key_base64: &str, encrypted: &str) -> Option<String> {
     let parts: Vec<&str> = encrypted.splitn(2, ':').collect();
     if parts.len() != 2 {
